@@ -7,7 +7,7 @@ test_that("GEOADD:prep", {
   nms <- c("Palermo", "Catania")
 
   expect_equal(redis_cmds$GEOADD(key, x, y, nms),
-               list("GEOADD", key, c(rbind(x, y, nms))))
+               list("GEOADD", key, NULL, NULL, c(rbind(x, y, nms))))
 })
 
 test_that("GEOADD:run", {
@@ -61,12 +61,21 @@ test_that("GEOPOS:run", {
   key <- rand_str()
   on.exit(con$DEL(key))
 
-  x <- c(13.361389, 15.087269)
-  y <- c(38.115556, 37.502669)
+  x1 <- 13.361389
+  x2 <- 15.087269
+  y1 <- 38.115556
+  y2 <- 37.502669
+  x <- c(x1, x2)
+  y <- c(y1, y2)
   nms <- c("Palermo", "Catania")
   con$GEOADD(key, x, y, nms)
 
-  con$GEOPOS(key, c(nms, "NonExisting"))
+  pos <- con$GEOPOS(key, c(nms, "NonExisting"))
+  expect_equal(as.numeric(pos[[1]][[1]]), x1, tolerance = 1e-6)
+  expect_equal(as.numeric(pos[[1]][[2]]), y1, tolerance = 1e-6)
+  expect_equal(as.numeric(pos[[2]][[1]]), x2, tolerance = 1e-6)
+  expect_equal(as.numeric(pos[[2]][[2]]), y2, tolerance = 1e-6)
+  expect_null(pos[[3]])
 })
 
 test_that("GEODIST:prep", {

@@ -71,18 +71,18 @@ hiredis_cmd <- function(x, standalone = FALSE) {
     if (is.null(args$name)) {
       args$name <- args$command
     }
-    
+
     j <- is_command & !(is_grouped & is_multiple)
     args$name_orig <- args$name
     args$command_length <- viapply(args$name, length)
     args$name[j] <- args$command[j]
     is_grouped <- viapply(args$name, length) > 1L
   }
-  
+
   if (any(duplicated(args$name))) {
     stop("Duplicated names")
   }
-  
+
   if (any(args$variadic)) {
     args$command_length[args$variadic] <- 2
   }

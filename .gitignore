@@ -19,3 +19,4 @@ doc
 Meta
 *.so
 *.o
+.Renviron

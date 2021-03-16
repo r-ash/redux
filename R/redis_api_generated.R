@@ -120,6 +120,9 @@ redis_commands <- function(command) {
     CLIENT_ID = function() {
       command(list("CLIENT", "ID"))
     },
+    CLIENT_INFO = function() {
+      command(list("CLIENT", "INFO"))
+    },
     CLIENT_KILL = function(ip_port = NULL, ID = NULL, TYPE = NULL, USER = NULL, ADDR = NULL, SKIPME = NULL) {
       assert_scalar_or_null2(ip_port)
       assert_scalar_or_null2(ID)
@@ -129,9 +132,10 @@ redis_commands <- function(command) {
       assert_scalar_or_null2(SKIPME)
       command(list("CLIENT", "KILL", ip_port, cmd_command("ID", ID, FALSE), cmd_command("TYPE", TYPE, FALSE), cmd_command("USER", USER, FALSE), cmd_command("ADDR", ADDR, FALSE), cmd_command("SKIPME", SKIPME, FALSE)))
     },
-    CLIENT_LIST = function(TYPE = NULL) {
+    CLIENT_LIST = function(TYPE = NULL, id = NULL) {
       assert_match_value_or_null(TYPE, c("normal", "master", "replica", "pubsub"))
-      command(list("CLIENT", "LIST", cmd_command("TYPE", TYPE, FALSE)))
+      assert_scalar_or_null2(id)
+      command(list("CLIENT", "LIST", cmd_command("TYPE", TYPE, FALSE), id))
     },
     CLIENT_GETNAME = function() {
       command(list("CLIENT", "GETNAME"))
@@ -139,9 +143,13 @@ redis_commands <- function(command) {
     CLIENT_GETREDIR = function() {
       stop("Do not use CLIENT GETREDIR; not supported with this client")
     },
-    CLIENT_PAUSE = function(timeout) {
+    CLIENT_UNPAUSE = function() {
+      command(list("CLIENT", "UNPAUSE"))
+    },
+    CLIENT_PAUSE = function(timeout, mode = NULL) {
       assert_scalar2(timeout)
-      command(list("CLIENT", "PAUSE", timeout))
+      assert_match_value_or_null(mode, c("WRITE", "ALL"))
+      command(list("CLIENT", "PAUSE", timeout, mode))
     },
     CLIENT_REPLY = function(reply_mode) {
       stop("Do not use CLIENT REPLY; not supported with this client")
@@ -152,6 +160,9 @@ redis_commands <- function(command) {
     },
     CLIENT_TRACKING = function(status, REDIRECT = NULL, PREFIX = NULL, BCAST = NULL, OPTIN = NULL, OPTOUT = NULL, NOLOOP = NULL) {
       stop("Do not use CLIENT TRACKING; not supported with this client")
+    },
+    CLIENT_TRACKINGINFO = function() {
+      command(list("CLIENT", "TRACKINGINFO"))
     },
     CLIENT_UNBLOCK = function(client_id, unblock_type = NULL) {
       assert_scalar2(client_id)
@@ -268,6 +279,13 @@ redis_commands <- function(command) {
     CONFIG_RESETSTAT = function() {
       command(list("CONFIG", "RESETSTAT"))
     },
+    COPY = function(source, destination, DB = NULL, replace = NULL) {
+      assert_scalar2(source)
+      assert_scalar2(destination)
+      assert_scalar_or_null2(DB)
+      assert_match_value_or_null(replace, c("REPLACE"))
+      command(list("COPY", source, destination, cmd_command("DB", DB, FALSE), replace))
+    },
     DBSIZE = function() {
       command(list("DBSIZE"))
     },
@@ -327,18 +345,26 @@ redis_commands <- function(command) {
       assert_scalar2(timestamp)
       command(list("EXPIREAT", key, timestamp))
     },
+    FAILOVER = function(target = NULL, ABORT = NULL, TIMEOUT = NULL) {
+      assert_scalar_or_null2(target)
+      assert_scalar_or_null2(ABORT)
+      assert_scalar_or_null2(TIMEOUT)
+      command(list("FAILOVER", target, cmd_command("ABORT", ABORT, FALSE), cmd_command("TIMEOUT", TIMEOUT, FALSE)))
+    },
     FLUSHALL = function(async = NULL) {
-      assert_match_value_or_null(async, c("ASYNC"))
+      assert_match_value_or_null(async, c("ASYNC", "SYNC"))
       command(list("FLUSHALL", async))
     },
     FLUSHDB = function(async = NULL) {
-      assert_match_value_or_null(async, c("ASYNC"))
+      assert_match_value_or_null(async, c("ASYNC", "SYNC"))
       command(list("FLUSHDB", async))
     },
-    GEOADD = function(key, longitude, latitude, member) {
+    GEOADD = function(key, longitude, latitude, member, condition = NULL, change = NULL) {
       assert_scalar2(key)
+      assert_match_value_or_null(condition, c("NX", "XX"))
+      assert_match_value_or_null(change, c("CH"))
       longitude <- cmd_interleave(longitude, latitude, member)
-      command(list("GEOADD", key, longitude))
+      command(list("GEOADD", key, condition, change, longitude))
     },
     GEOHASH = function(key, member) {
       assert_scalar2(key)
@@ -355,7 +381,7 @@ redis_commands <- function(command) {
       assert_match_value_or_null(unit, c("m", "km", "ft", "mi"))
       command(list("GEODIST", key, member1, member2, unit))
     },
-    GEORADIUS = function(key, longitude, latitude, radius, unit, withcoord = NULL, withdist = NULL, withhash = NULL, COUNT = NULL, order = NULL, STORE = NULL, STOREDIST = NULL) {
+    GEORADIUS = function(key, longitude, latitude, radius, unit, withcoord = NULL, withdist = NULL, withhash = NULL, count = NULL, order = NULL, STORE = NULL, STOREDIST = NULL) {
       assert_scalar2(key)
       assert_scalar2(longitude)
       assert_scalar2(latitude)
@@ -364,13 +390,13 @@ redis_commands <- function(command) {
       assert_match_value_or_null(withcoord, c("WITHCOORD"))
       assert_match_value_or_null(withdist, c("WITHDIST"))
       assert_match_value_or_null(withhash, c("WITHHASH"))
-      assert_scalar_or_null2(COUNT)
+      assert_scalar_or_null2(count)
       assert_match_value_or_null(order, c("ASC", "DESC"))
       assert_scalar_or_null2(STORE)
       assert_scalar_or_null2(STOREDIST)
-      command(list("GEORADIUS", key, longitude, latitude, radius, unit, withcoord, withdist, withhash, cmd_command("COUNT", COUNT, FALSE), order, cmd_command("STORE", STORE, FALSE), cmd_command("STOREDIST", STOREDIST, FALSE)))
+      command(list("GEORADIUS", key, longitude, latitude, radius, unit, withcoord, withdist, withhash, count, order, cmd_command("STORE", STORE, FALSE), cmd_command("STOREDIST", STOREDIST, FALSE)))
     },
-    GEORADIUSBYMEMBER = function(key, member, radius, unit, withcoord = NULL, withdist = NULL, withhash = NULL, COUNT = NULL, order = NULL, STORE = NULL, STOREDIST = NULL) {
+    GEORADIUSBYMEMBER = function(key, member, radius, unit, withcoord = NULL, withdist = NULL, withhash = NULL, count = NULL, order = NULL, STORE = NULL, STOREDIST = NULL) {
       assert_scalar2(key)
       assert_scalar2(member)
       assert_scalar2(radius)
@@ -378,11 +404,39 @@ redis_commands <- function(command) {
       assert_match_value_or_null(withcoord, c("WITHCOORD"))
       assert_match_value_or_null(withdist, c("WITHDIST"))
       assert_match_value_or_null(withhash, c("WITHHASH"))
-      assert_scalar_or_null2(COUNT)
+      assert_scalar_or_null2(count)
       assert_match_value_or_null(order, c("ASC", "DESC"))
       assert_scalar_or_null2(STORE)
       assert_scalar_or_null2(STOREDIST)
-      command(list("GEORADIUSBYMEMBER", key, member, radius, unit, withcoord, withdist, withhash, cmd_command("COUNT", COUNT, FALSE), order, cmd_command("STORE", STORE, FALSE), cmd_command("STOREDIST", STOREDIST, FALSE)))
+      command(list("GEORADIUSBYMEMBER", key, member, radius, unit, withcoord, withdist, withhash, count, order, cmd_command("STORE", STORE, FALSE), cmd_command("STOREDIST", STOREDIST, FALSE)))
+    },
+    GEOSEARCH = function(key, FROMMEMBER = NULL, FROMLONLAT = NULL, circle = NULL, box = NULL, order = NULL, count = NULL, withcoord = NULL, withdist = NULL, withhash = NULL) {
+      assert_scalar2(key)
+      assert_scalar_or_null2(FROMMEMBER)
+      assert_length_or_null(FROMLONLAT, 2L)
+      assert_scalar_or_null2(circle)
+      assert_scalar_or_null2(box)
+      assert_match_value_or_null(order, c("ASC", "DESC"))
+      assert_scalar_or_null2(count)
+      assert_match_value_or_null(withcoord, c("WITHCOORD"))
+      assert_match_value_or_null(withdist, c("WITHDIST"))
+      assert_match_value_or_null(withhash, c("WITHHASH"))
+      command(list("GEOSEARCH", key, cmd_command("FROMMEMBER", FROMMEMBER, FALSE), cmd_command("FROMLONLAT", FROMLONLAT, TRUE), circle, box, order, count, withcoord, withdist, withhash))
+    },
+    GEOSEARCHSTORE = function(destination, source, FROMMEMBER = NULL, FROMLONLAT = NULL, circle = NULL, box = NULL, order = NULL, count = NULL, withcoord = NULL, withdist = NULL, withhash = NULL, storedist = NULL) {
+      assert_scalar2(destination)
+      assert_scalar2(source)
+      assert_scalar_or_null2(FROMMEMBER)
+      assert_length_or_null(FROMLONLAT, 2L)
+      assert_scalar_or_null2(circle)
+      assert_scalar_or_null2(box)
+      assert_match_value_or_null(order, c("ASC", "DESC"))
+      assert_scalar_or_null2(count)
+      assert_match_value_or_null(withcoord, c("WITHCOORD"))
+      assert_match_value_or_null(withdist, c("WITHDIST"))
+      assert_match_value_or_null(withhash, c("WITHHASH"))
+      assert_match_value_or_null(storedist, c("STOREDIST"))
+      command(list("GEOSEARCHSTORE", destination, source, cmd_command("FROMMEMBER", FROMMEMBER, FALSE), cmd_command("FROMLONLAT", FROMLONLAT, TRUE), circle, box, order, count, withcoord, withdist, withhash, storedist))
     },
     GET = function(key) {
       assert_scalar2(key)
@@ -392,6 +446,15 @@ redis_commands <- function(command) {
       assert_scalar2(key)
       assert_scalar2(offset)
       command(list("GETBIT", key, offset))
+    },
+    GETDEL = function(key) {
+      assert_scalar2(key)
+      command(list("GETDEL", key))
+    },
+    GETEX = function(key, expiration = NULL) {
+      assert_scalar2(key)
+      assert_match_value_or_null(expiration, c("EX seconds", "PX milliseconds", "EXAT timestamp", "PXAT milliseconds-timestamp", "PERSIST"))
+      command(list("GETEX", key, expiration))
     },
     GETRANGE = function(key, start, end) {
       assert_scalar2(key)
@@ -408,7 +471,7 @@ redis_commands <- function(command) {
       assert_scalar2(key)
       command(list("HDEL", key, field))
     },
-    HELLO = function(protover, AUTH = NULL, SETNAME = NULL) {
+    HELLO = function(arguments = NULL) {
       stop("Do not use HELLO; RESP3 not supported with this client")
     },
     HEXISTS = function(key, field) {
@@ -464,6 +527,11 @@ redis_commands <- function(command) {
       assert_scalar2(field)
       assert_scalar2(value)
       command(list("HSETNX", key, field, value))
+    },
+    HRANDFIELD = function(key, options = NULL) {
+      assert_scalar2(key)
+      assert_scalar_or_null2(options)
+      command(list("HRANDFIELD", key, options))
     },
     HSTRLEN = function(key, field) {
       assert_scalar2(key)
@@ -521,9 +589,10 @@ redis_commands <- function(command) {
       assert_scalar2(key)
       command(list("LLEN", key))
     },
-    LPOP = function(key) {
+    LPOP = function(key, count = NULL) {
       assert_scalar2(key)
-      command(list("LPOP", key))
+      assert_scalar_or_null2(count)
+      command(list("LPOP", key, count))
     },
     LPOS = function(key, element, RANK = NULL, COUNT = NULL, MAXLEN = NULL) {
       assert_scalar2(key)
@@ -710,6 +779,9 @@ redis_commands <- function(command) {
       assert_scalar2(newkey)
       command(list("RENAMENX", key, newkey))
     },
+    RESET = function() {
+      command(list("RESET"))
+    },
     RESTORE = function(key, ttl, serialized_value, replace = NULL, absttl = NULL, IDLETIME = NULL, FREQ = NULL) {
       assert_scalar2(key)
       assert_scalar2(ttl)
@@ -723,9 +795,10 @@ redis_commands <- function(command) {
     ROLE = function() {
       command(list("ROLE"))
     },
-    RPOP = function(key) {
+    RPOP = function(key, count = NULL) {
       assert_scalar2(key)
-      command(list("RPOP", key))
+      assert_scalar_or_null2(count)
+      command(list("RPOP", key, count))
     },
     RPOPLPUSH = function(source, destination) {
       assert_scalar2(source)
@@ -765,8 +838,9 @@ redis_commands <- function(command) {
     SCRIPT_EXISTS = function(sha1) {
       command(list("SCRIPT", "EXISTS", sha1))
     },
-    SCRIPT_FLUSH = function() {
-      command(list("SCRIPT", "FLUSH"))
+    SCRIPT_FLUSH = function(async = NULL) {
+      assert_match_value_or_null(async, c("ASYNC", "SYNC"))
+      command(list("SCRIPT", "FLUSH", async))
     },
     SCRIPT_KILL = function() {
       command(list("SCRIPT", "KILL"))
@@ -789,7 +863,7 @@ redis_commands <- function(command) {
     SET = function(key, value, expiration = NULL, condition = NULL, get = NULL) {
       assert_scalar2(key)
       assert_scalar2(value)
-      assert_match_value_or_null(expiration, c("EX seconds", "PX milliseconds", "KEEPTTL"))
+      assert_match_value_or_null(expiration, c("EX seconds", "PX milliseconds", "EXAT timestamp", "PXAT milliseconds-timestamp", "KEEPTTL"))
       assert_match_value_or_null(condition, c("NX", "XX"))
       assert_match_value_or_null(get, c("GET"))
       command(list("SET", key, value, expiration, condition, get))
@@ -964,6 +1038,16 @@ redis_commands <- function(command) {
       assert_scalar2(max)
       command(list("ZCOUNT", key, min, max))
     },
+    ZDIFF = function(numkeys, key, withscores = NULL) {
+      assert_scalar2(numkeys)
+      assert_match_value_or_null(withscores, c("WITHSCORES"))
+      command(list("ZDIFF", numkeys, key, withscores))
+    },
+    ZDIFFSTORE = function(destination, numkeys, key) {
+      assert_scalar2(destination)
+      assert_scalar2(numkeys)
+      command(list("ZDIFFSTORE", destination, numkeys, key))
+    },
     ZINCRBY = function(key, increment, member) {
       assert_scalar2(key)
       assert_scalar2(increment)
@@ -998,12 +1082,30 @@ redis_commands <- function(command) {
       assert_scalar_or_null2(count)
       command(list("ZPOPMIN", key, count))
     },
-    ZRANGE = function(key, start, stop, withscores = NULL) {
+    ZRANDMEMBER = function(key, options = NULL) {
       assert_scalar2(key)
-      assert_scalar2(start)
-      assert_scalar2(stop)
+      assert_scalar_or_null2(options)
+      command(list("ZRANDMEMBER", key, options))
+    },
+    ZRANGESTORE = function(dst, src, min, max, sortby = NULL, rev = NULL, LIMIT = NULL) {
+      assert_scalar2(dst)
+      assert_scalar2(src)
+      assert_scalar2(min)
+      assert_scalar2(max)
+      assert_match_value_or_null(sortby, c("BYSCORE", "BYLEX"))
+      assert_match_value_or_null(rev, c("REV"))
+      assert_length_or_null(LIMIT, 2L)
+      command(list("ZRANGESTORE", dst, src, min, max, sortby, rev, cmd_command("LIMIT", LIMIT, TRUE)))
+    },
+    ZRANGE = function(key, min, max, sortby = NULL, rev = NULL, LIMIT = NULL, withscores = NULL) {
+      assert_scalar2(key)
+      assert_scalar2(min)
+      assert_scalar2(max)
+      assert_match_value_or_null(sortby, c("BYSCORE", "BYLEX"))
+      assert_match_value_or_null(rev, c("REV"))
+      assert_length_or_null(LIMIT, 2L)
       assert_match_value_or_null(withscores, c("WITHSCORES"))
-      command(list("ZRANGE", key, start, stop, withscores))
+      command(list("ZRANGE", key, min, max, sortby, rev, cmd_command("LIMIT", LIMIT, TRUE), withscores))
     },
     ZRANGEBYLEX = function(key, min, max, LIMIT = NULL) {
       assert_scalar2(key)
@@ -1175,13 +1277,16 @@ cmd_since <- numeric_version(c(
   CLIENT_GETNAME = "2.6.9",
   CLIENT_GETREDIR = "6.0.0",
   CLIENT_ID = "5.0.0",
+  CLIENT_INFO = "6.2.0",
   CLIENT_KILL = "2.4.0",
   CLIENT_LIST = "2.4.0",
   CLIENT_PAUSE = "2.9.50",
   CLIENT_REPLY = "3.2.0",
   CLIENT_SETNAME = "2.6.9",
   CLIENT_TRACKING = "6.0.0",
+  CLIENT_TRACKINGINFO = "6.2.0",
   CLIENT_UNBLOCK = "5.0.0",
+  CLIENT_UNPAUSE = "6.2.0",
   CLUSTER_ADDSLOTS = "3.0.0",
   CLUSTER_BUMPEPOCH = "3.0.0",
   CLUSTER_COUNT_FAILURE_REPORTS = "3.0.0",
@@ -1212,6 +1317,7 @@ cmd_since <- numeric_version(c(
   CONFIG_RESETSTAT = "2.0.0",
   CONFIG_REWRITE = "2.8.0",
   CONFIG_SET = "2.0.0",
+  COPY = "6.2.0",
   DBSIZE = "1.0.0",
   DEBUG_OBJECT = "1.0.0",
   DEBUG_SEGFAULT = "1.0.0",
@@ -1227,6 +1333,7 @@ cmd_since <- numeric_version(c(
   EXISTS = "1.0.0",
   EXPIRE = "1.0.0",
   EXPIREAT = "1.2.0",
+  FAILOVER = "6.2.0",
   FLUSHALL = "1.0.0",
   FLUSHDB = "1.0.0",
   GEOADD = "3.2.0",
@@ -1235,8 +1342,12 @@ cmd_since <- numeric_version(c(
   GEOPOS = "3.2.0",
   GEORADIUS = "3.2.0",
   GEORADIUSBYMEMBER = "3.2.0",
+  GEOSEARCH = "6.2",
+  GEOSEARCHSTORE = "6.2",
   GET = "1.0.0",
   GETBIT = "2.2.0",
+  GETDEL = "6.2.0",
+  GETEX = "6.2.0",
   GETRANGE = "2.4.0",
   GETSET = "1.0.0",
   HDEL = "2.0.0",
@@ -1250,6 +1361,7 @@ cmd_since <- numeric_version(c(
   HLEN = "2.0.0",
   HMGET = "2.0.0",
   HMSET = "2.0.0",
+  HRANDFIELD = "6.2.0",
   HSCAN = "2.8.0",
   HSET = "2.0.0",
   HSETNX = "2.0.0",
@@ -1318,6 +1430,7 @@ cmd_since <- numeric_version(c(
   RENAME = "1.0.0",
   RENAMENX = "1.0.0",
   REPLICAOF = "5.0.0",
+  RESET = "6.2",
   RESTORE = "2.6.0",
   ROLE = "2.8.12",
   RPOP = "1.0.0",
@@ -1374,6 +1487,8 @@ cmd_since <- numeric_version(c(
   ZADD = "1.2.0",
   ZCARD = "1.2.0",
   ZCOUNT = "2.0.0",
+  ZDIFF = "6.2.0",
+  ZDIFFSTORE = "6.2.0",
   ZINCRBY = "1.2.0",
   ZINTER = "6.2.0",
   ZINTERSTORE = "2.0.0",
@@ -1381,9 +1496,11 @@ cmd_since <- numeric_version(c(
   ZMSCORE = "6.2.0",
   ZPOPMAX = "5.0.0",
   ZPOPMIN = "5.0.0",
+  ZRANDMEMBER = "6.2.0",
   ZRANGE = "1.2.0",
   ZRANGEBYLEX = "2.8.9",
   ZRANGEBYSCORE = "1.0.5",
+  ZRANGESTORE = "6.2.0",
   ZRANK = "2.0.0",
   ZREM = "1.2.0",
   ZREMRANGEBYLEX = "2.8.9",

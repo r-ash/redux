@@ -108,6 +108,9 @@ test_that("LPOP", {
   con$RPUSH(key, "three")
   expect_equal(con$LPOP(key), "one")
   expect_equal(con$LRANGE(key, 0, -1), list("two", "three"))
+
+  expect_equal(con$LPOP(key, 2), list("two", "three"))
+  expect_equal(con$LRANGE(key, 0, -1), list())
 })
 
 test_that("LPOS (mock)", {
@@ -231,6 +234,9 @@ test_that("RPOP", {
   con$RPUSH(key, "three")
   expect_equal(con$RPOP(key), "three")
   expect_equal(con$LRANGE(key, 0, -1), list("one", "two"))
+
+  expect_equal(con$LPOP(key, 2), list("one", "two"))
+  expect_equal(con$LRANGE(key, 0, -1), list())
 })
 
 test_that("RPOPLPUSH", {

@@ -292,6 +292,62 @@ test_that("MIGRATE", {
                     list("KEYS", keys)))
 })
 
+test_that("COPY:prepare", {
+  expect_equal(redis_cmds$COPY("dolly", "clone"),
+               list("COPY", "dolly", "clone", NULL, NULL))
+  expect_equal(redis_cmds$COPY("dolly", "clone", DB = "dest",
+                               replace = "REPLACE"),
+               list("COPY", "dolly", "clone", list("DB", "dest"), "REPLACE"))
+})
+
+test_that("COPY:run", {
+  skip_if_cmd_unsupported("COPY")
+  con <- test_hiredis_connection()
+  on.exit(con$DEL("dolly"))
+  on.exit(con$DEL("clone"))
+  con$SET("dolly", "sheep")
+  con$COPY("dolly", "clone")
+
+  expect_equal(con$GET("clone"), "sheep")
+})
+
+test_that("FAILOVER", {
+  expect_equal(redis_cmds$FAILOVER(),
+               list("FAILOVER", NULL, NULL, NULL))
+})
+
+test_that("GETDEL:prepare", {
+  expect_equal(redis_cmds$GETDEL("mykey"),
+               list("GETDEL", "mykey"))
+
+})
+
+test_that("GETDEL:run", {
+  skip_if_cmd_unsupported("GETDEL")
+  con <- test_hiredis_connection()
+  key <- rand_str()
+  on.exit(con$DEL(key))
+  con$SET(key, "Hello")
+  expect_equal(con$GETDEL(key), "Hello")
+  expect_null(con$GETDEL(key))
+})
+
+test_that("GETEX:prepare", {
+  skip("THIS won't work with current generation")
+  ## Should work with EX 60
+  expect_equal(redis_cmds$GETEX("mykey", "EX seconds"),
+               list("GETEX", "mykey", "EX seconds"))
+})
+
+test_that("GETEX:run", {
+  skip("TODO")
+})
+
+test_that("RESET", {
+  expect_equal(redis_cmds$RESET(),
+               list("RESET"))
+})
+
 ## NOTE: not testing SCAN as tested extensively elsewhere
 ## NOTE: not testing SORT as tested elsewhere
 ## NOTE: not testing TOUCH as it's in too recent redis
